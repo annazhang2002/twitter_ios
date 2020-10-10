@@ -14,8 +14,9 @@ class HomeTableViewController: UITableViewController {
     var numberTweets: Int!
     
     func loadTweets() {
+        numberTweets = 20
         let tweetUrl = "https://api.twitter.com/1.1/statuses/home_timeline.json"
-        let params = ["count":10]
+        let params = ["count":numberTweets]
         TwitterAPICaller.client?.getDictionariesRequest(url: tweetUrl, parameters: params, success: { (tweets: [NSDictionary]) in
             
             self.tweetArray.removeAll()
@@ -27,7 +28,29 @@ class HomeTableViewController: UITableViewController {
             print("Could not retrieve tweets")
         })
     }
-
+    
+    func loadMoreTweets() {
+        numberTweets = numberTweets + 20
+        let tweetUrl = "https://api.twitter.com/1.1/statuses/home_timeline.json"
+        let params = ["count":numberTweets]
+        TwitterAPICaller.client?.getDictionariesRequest(url: tweetUrl, parameters: params, success: { (tweets: [NSDictionary]) in
+            
+            self.tweetArray.removeAll()
+            for tweet in tweets {
+                self.tweetArray.append(tweet)
+            }
+            self.tableView.reloadData()
+        }, failure: { (Error) in
+            print("Could not retrieve more tweets")
+        })
+    }
+    
+    override func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
+        if (indexPath.row + 1 == tweetArray.count) {
+            loadMoreTweets()
+        }
+    }
+    
     @IBAction func onLogoutButton(_ sender: Any) {
         TwitterAPICaller.client?.logout();
         UserDefaults.standard.set(false, forKey: "isLoggedIn")
@@ -40,11 +63,19 @@ class HomeTableViewController: UITableViewController {
         let user = tweet["user"] as! NSDictionary
         cell.usernameLabel.text = user["name"] as? String
         cell.tweetContentLabel.text = (tweet["text"] as! String)
+        
+        // insert image
         let imageUrl = URL(string: (user["profile_image_url_https"] as? String)!)
         let data = try? Data(contentsOf: imageUrl!)
         if let imageData = data {
             cell.profileImageView.image = UIImage(data: imageData)
         }
+        
+        cell.tweetId = tweet["id"] as! Int
+        
+        // set like and retweet
+        cell.setLike(tweet["favorited"] as! Bool)
+        cell.setRetweet(tweet["retweeted"] as! Bool)
         return cell
     }
     
@@ -56,6 +87,11 @@ class HomeTableViewController: UITableViewController {
 
         // Uncomment the following line to display an Edit button in the navigation bar for this view controller.
         // self.navigationItem.rightBarButtonItem = self.editButtonItem
+    }
+    
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        loadTweets()
     }
 
     // MARK: - Table view data source
